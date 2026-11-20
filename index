@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Судоку</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f5f1;--surf:#fff;--tx:#1c1c1a;--mut:#6b6b66;--line:#c9c7bf;--thick:#2b2b28;--sel:#ffe08a;--rel:#eef1f6;--same:#cfe3ff;--giv:#1c1c1a;--usr:#1b5fd1;--err:#d33;--errbg:#fde0e0;--acc:#1b5fd1;--hint:#d9f2dc}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171716;--surf:#222221;--tx:#ecebe6;--mut:#9a9992;--line:#444;--thick:#cfcec7;--sel:#6b5a1c;--rel:#2b2e35;--same:#27456f;--giv:#ecebe6;--usr:#7fb0ff;--err:#ff7b7b;--errbg:#4a2323;--acc:#5b94f0;--hint:#244a2b}}
+:root[data-theme="dark"]{--bg:#171716;--surf:#222221;--tx:#ecebe6;--mut:#9a9992;--line:#444;--thick:#cfcec7;--sel:#6b5a1c;--rel:#2b2e35;--same:#27456f;--giv:#ecebe6;--usr:#7fb0ff;--err:#ff7b7b;--errbg:#4a2323;--acc:#5b94f0;--hint:#244a2b}
+*{box-sizing:border-box}html,body{height:auto}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;justify-content:center}
+main{width:100%;max-width:480px;padding:14px}
+h1{margin:4px 0 10px;font-size:22px;display:flex;justify-content:space-between;align-items:center}
+.bar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px;color:var(--mut);font-size:14px;flex-wrap:wrap}
+select,button{font:inherit;color:var(--tx);background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:8px 12px;cursor:pointer}
+button.p{background:var(--acc);color:#fff;border-color:var(--acc)}
+button:active{transform:scale(.97)}
+#board{display:grid;grid-template-columns:repeat(9,1fr);width:100%;aspect-ratio:1;border:2px solid var(--thick);background:var(--surf);user-select:none}
+.c{display:flex;align-items:center;justify-content:center;font-size:clamp(18px,6vw,28px);border-right:1px solid var(--line);border-bottom:1px solid var(--line);cursor:pointer;color:var(--usr)}
+.c.g{color:var(--giv);font-weight:600}
+.c:nth-child(9n){border-right:0}.c:nth-child(n+73){border-bottom:0}
+.c:nth-child(9n+3),.c:nth-child(9n+6){border-right:2px solid var(--thick)}
+.c:nth-child(n+19):nth-child(-n+27),.c:nth-child(n+46):nth-child(-n+54){border-bottom:2px solid var(--thick)}
+.c.r{background:var(--rel)}.c.s2{background:var(--same)}.c.h{background:var(--hint)}
+.c.s{background:var(--sel)}.c.e{background:var(--errbg);color:var(--err)}
+#pad{display:grid;grid-template-columns:repeat(9,1fr);gap:6px;margin:12px 0}
+#pad button{padding:10px 0;font-size:20px;position:relative}
+#pad button.done{opacity:.3}
+.act{display:flex;gap:8px;flex-wrap:wrap}.act button{flex:1}
+#msg{min-height:44px;margin:10px 0;padding:10px 12px;border-radius:10px;background:var(--surf);border:1px solid var(--line);font-size:15px}
+#rules{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:4px 14px;margin-top:12px;font-size:15px}
+#rules summary{cursor:pointer;font-weight:600;padding:8px 0}
+#rules li{margin:4px 0}
+.k1{color:#e08a00;font-weight:600}.k2{color:#d6336c;font-weight:600}.k3{color:#1b5fd1;font-weight:600}
+</style>
+</head>
+<body>
+<main>
+<h1><span>Судоку</span><button id="theme" title="Тема" aria-label="Тема">◐</button></h1>
+<div class="bar">
+ <select id="lvl"><option value="36">Лёгкий</option><option value="46" selected>Средний</option><option value="53">Сложный</option></select>
+ <span>Время: <b id="time">0:00</b></span><span>Ошибки: <b id="errs">0</b></span><span>Подсказки: <b id="hc">0</b></span>
+</div>
+<div id="board"></div>
+<div id="msg">Выберите клетку и цифру.</div>
+<div id="pad"></div>
+<div class="act">
+ <button id="erase">Стереть</button>
+ <button id="hint">Подсказка</button>
+ <button id="check">Проверить</button>
+ <button id="new" class="p">Новая игра</button>
+</div>
+<details id="rules" open>
+<summary>Правила игры</summary>
+<p>Поле — квадрат 9×9, разделённый на 9 блоков 3×3. Часть клеток уже заполнена цифрами — это подсказки. Заполните пустые клетки цифрами от 1 до 9 так, чтобы цифры не повторялись:</p>
+<ul>
+<li>в каждой <span class="k1">строке</span>;</li>
+<li>в каждом <span class="k2">столбце</span>;</li>
+<li>в каждом <span class="k3">блоке 3×3</span>.</li>
+</ul>
+<p><b>Управление:</b> нажмите клетку, затем цифру (на экране или на клавиатуре; стрелки — перемещение, Backspace — стереть). Выбранная клетка подсвечивает свою строку, столбец и блок, а одинаковые цифры выделяются синим. Повторы подсвечиваются красным.</p>
+<p><b>Подсказка:</b> первое нажатие показывает, какие цифры подходят для клетки и как их найти; второе — вставляет верную цифру. «Проверить» отмечает неверные цифры.</p>
+</details>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let sol,giv,val,sel=-1,hintCell=-1,hints=0,errs=0,t0,timer,over=false;
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const rc=i=>[i/9|0,i%9];
+function peers(i){const[r,c]=rc(i),s=[];for(let j=0;j<81;j++){const[a,b]=rc(j);if(j!==i&&(a===r||b===c||((a/3|0)===(r/3|0)&&(b/3|0)===(c/3|0))))s.push(j)}return s}
+const PEERS=Array.from({length:81},(_,i)=>peers(i));
+function cands(g,i){const u=new Set(PEERS[i].map(j=>g[j]));return[1,2,3,4,5,6,7,8,9].filter(d=>!u.has(d))}
+function fill(g){let b=-1,bc=null;for(let i=0;i<81;i++)if(!g[i]){const c=cands(g,i);if(!bc||c.length<bc.length){b=i;bc=c;if(c.length<2)break}}
+ if(b<0)return true;for(const d of shuffle(bc)){g[b]=d;if(fill(g))return true}g[b]=0;return false}
+function count(g,lim){let b=-1,bc=null;for(let i=0;i<81;i++)if(!g[i]){const c=cands(g,i);if(!bc||c.length<bc.length){b=i;bc=c;if(c.length<2)break}}
+ if(b<0)return 1;let n=0;for(const d of bc){g[b]=d;n+=count(g,lim-n);if(n>=lim)break}g[b]=0;return n}
+function newGame(){
+ sol=Array(81).fill(0);fill(sol);
+ const g=sol.slice(),target=+$('lvl').value;let removed=0;
+ for(const i of shuffle([...Array(81).keys()])){if(removed>=target)break;const v=g[i];g[i]=0;if(count(g.slice(),2)===1)removed++;else g[i]=v}
+ giv=g.map(x=>!!x);val=g.slice();sel=-1;hintCell=-1;hints=0;errs=0;over=false;t0=Date.now();
+ $('errs').textContent=0;$('hc').textContent=0;say('Новая игра. Выберите клетку и цифру.');
+ clearInterval(timer);timer=setInterval(()=>{if(!over){const s=(Date.now()-t0)/1000|0;$('time').textContent=(s/60|0)+':'+String(s%60).padStart(2,'0')}},500);render()}
+function say(t){$('msg').textContent=t}
+function conflict(i){return val[i]&&PEERS[i].some(j=>val[j]===val[i])}
+function render(wrong){
+ const b=$('board');if(!b.children.length)for(let i=0;i<81;i++){const d=document.createElement('div');d.className='c';d.onclick=()=>pick(i);b.appendChild(d)}
+ for(let i=0;i<81;i++){const d=b.children[i];let cl='c';if(giv[i])cl+=' g';
+  if(sel>=0){if(i===sel)cl+=' s';else if(PEERS[sel].includes(i))cl+=' r';if(i!==sel&&val[sel]&&val[i]===val[sel])cl+=' s2'}
+  if(i===hintCell&&i!==sel)cl+=' h';
+  if(conflict(i)||(wrong&&wrong.includes(i)))cl+=' e';
+  d.className=cl;d.textContent=val[i]||''}
+ const cnt=Array(10).fill(0);val.forEach(v=>cnt[v]++);
+ [...$('pad').children].forEach((p,k)=>p.classList.toggle('done',cnt[k+1]>=9))}
+function pick(i){sel=i;if(hintCell!==i)hintCell=-1;render()}
+function put(d){
+ if(over||sel<0||giv[sel])return;
+ val[sel]=d;hintCell=-1;
+ if(d&&sol[sel]!==d){errs++;$('errs').textContent=errs;say('Эта цифра не подходит — проверьте строку, столбец и блок.')}else say('');
+ render();win()}
+function win(){if(val.every((v,i)=>v===sol[i])){over=true;const s=(Date.now()-t0)/1000|0;say(`🎉 Готово! Время ${(s/60|0)}:${String(s%60).padStart(2,'0')}, ошибок: ${errs}, подсказок: ${hints}.`)}}
+function hint(){
+ if(over)return;
+ if(sel<0||giv[sel]||val[sel]===sol[sel]){
+  const empty=[...Array(81).keys()].filter(i=>!giv[i]&&val[i]!==sol[i]);if(!empty.length)return;
+  let best=empty[0],bl=9;for(const i of empty){const g=val.map((v,k)=>k===i||v===sol[k]?(k===i?0:v):v);const n=cands(g,i).length;if(n<bl){bl=n;best=i}}
+  sel=best}
+ if(hintCell!==sel){
+  hintCell=sel;const g=val.slice();g[sel]=0;const c=cands(g,sel);
+  const[r,col]=rc(sel);
+  say(c.length===1?`Клетка (строка ${r+1}, столбец ${col+1}): по строке, столбцу и блоку подходит только одна цифра. Нажмите «Подсказка» ещё раз, чтобы увидеть её.`
+   :`Клетка (строка ${r+1}, столбец ${col+1}): подходят цифры ${c.join(', ')}. Исключите лишние, глядя на соседние строки и столбцы. Нажмите «Подсказка» ещё раз, чтобы вставить ответ.`);
+  render()}
+ else{val[sel]=sol[sel];hints++;$('hc').textContent=hints;hintCell=-1;say('Цифра вставлена.');render();win()}}
+function check(){
+ const w=[];val.forEach((v,i)=>{if(v&&v!==sol[i])w.push(i)});
+ render(w);say(w.length?`Неверных цифр: ${w.length} (отмечены красным).`:'Ошибок нет — всё верно пока!')}
+$('pad').innerHTML=[1,2,3,4,5,6,7,8,9].map(d=>`<button>${d}</button>`).join('');
+[...$('pad').children].forEach((b,k)=>b.onclick=()=>put(k+1));
+$('erase').onclick=()=>put(0);$('hint').onclick=hint;$('check').onclick=check;$('new').onclick=newGame;$('lvl').onchange=newGame;
+$('theme').onclick=()=>{const r=document.documentElement,d=getComputedStyle(r).getPropertyValue('--bg').trim()==='#171716';r.dataset.theme=d?'light':'dark'};
+document.addEventListener('keydown',e=>{
+ if(/^[1-9]$/.test(e.key))put(+e.key);
+ else if(e.key==='Backspace'||e.key==='Delete'||e.key==='0')put(0);
+ else if(e.key.startsWith('Arrow')){e.preventDefault();let s=sel<0?40:sel,[r,c]=rc(s);
+  if(e.key==='ArrowUp')r=(r+8)%9;if(e.key==='ArrowDown')r=(r+1)%9;if(e.key==='ArrowLeft')c=(c+8)%9;if(e.key==='ArrowRight')c=(c+1)%9;pick(r*9+c)}});
+newGame();
+</script>
+</body>
+</html>
