@@ -33,6 +33,7 @@ button:active{transform:scale(.97)}
 #rules{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:4px 14px;margin-top:12px;font-size:15px}
 #rules summary{cursor:pointer;font-weight:600;padding:8px 0}
 #rules li{margin:4px 0}
+#pad button.on,#erase.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .k1{color:#e08a00;font-weight:600}.k2{color:#d6336c;font-weight:600}.k3{color:#1b5fd1;font-weight:600}
 </style>
 </head>
@@ -60,13 +61,13 @@ button:active{transform:scale(.97)}
 <li>в каждом <span class="k2">столбце</span>;</li>
 <li>в каждом <span class="k3">блоке 3×3</span>.</li>
 </ul>
-<p><b>Управление:</b> нажмите клетку, затем цифру (на экране или на клавиатуре; стрелки — перемещение, Backspace — стереть). Выбранная клетка подсвечивает свою строку, столбец и блок, а одинаковые цифры выделяются синим. Повторы подсвечиваются красным.</p>
+<p><b>Управление:</b> выберите цифру на панели под полем — она останется активной, и вы просто нажимаете на клетки, куда её нужно поставить (повторное нажатие на клетку убирает цифру). Нажмите ту же цифру ещё раз, чтобы снять выбор. «Стереть» включает режим стирания. Можно и по-старому: выбрать клетку и нажать цифру на клавиатуре (стрелки — перемещение, Backspace — стереть). Выбранная клетка подсвечивает свою строку, столбец и блок, а одинаковые цифры выделяются синим. Повторы подсвечиваются красным.</p>
 <p><b>Подсказка:</b> первое нажатие показывает, какие цифры подходят для клетки и как их найти; второе — вставляет верную цифру. «Проверить» отмечает неверные цифры.</p>
 </details>
 </main>
 <script>
 const $=id=>document.getElementById(id);
-let sol,giv,val,sel=-1,hintCell=-1,hints=0,errs=0,t0,timer,over=false;
+let dig=0,sol,giv,val,sel=-1,hintCell=-1,hints=0,errs=0,t0,timer,over=false;
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const rc=i=>[i/9|0,i%9];
 function peers(i){const[r,c]=rc(i),s=[];for(let j=0;j<81;j++){const[a,b]=rc(j);if(j!==i&&(a===r||b===c||((a/3|0)===(r/3|0)&&(b/3|0)===(c/3|0))))s.push(j)}return s}
@@ -87,14 +88,15 @@ function say(t){$('msg').textContent=t}
 function conflict(i){return val[i]&&PEERS[i].some(j=>val[j]===val[i])}
 function render(wrong){
  const b=$('board');if(!b.children.length)for(let i=0;i<81;i++){const d=document.createElement('div');d.className='c';d.onclick=()=>pick(i);b.appendChild(d)}
- for(let i=0;i<81;i++){const d=b.children[i];let cl='c';if(giv[i])cl+=' g';
-  if(sel>=0){if(i===sel)cl+=' s';else if(PEERS[sel].includes(i))cl+=' r';if(i!==sel&&val[sel]&&val[i]===val[sel])cl+=' s2'}
+ for(let i=0;i<81;i++){const d=b.children[i];let cl='c';const ref=dig>0?dig:(sel>=0?val[sel]:0);if(giv[i])cl+=' g';
+  if(sel>=0){if(i===sel)cl+=' s';else if(PEERS[sel].includes(i))cl+=' r'}if(i!==sel&&ref&&val[i]===ref)cl+=' s2';
   if(i===hintCell&&i!==sel)cl+=' h';
   if(conflict(i)||(wrong&&wrong.includes(i)))cl+=' e';
   d.className=cl;d.textContent=val[i]||''}
  const cnt=Array(10).fill(0);val.forEach(v=>cnt[v]++);
- [...$('pad').children].forEach((p,k)=>p.classList.toggle('done',cnt[k+1]>=9))}
-function pick(i){sel=i;if(hintCell!==i)hintCell=-1;render()}
+ [...$('pad').children].forEach((p,k)=>{p.classList.toggle('done',cnt[k+1]>=9);p.classList.toggle('on',dig===k+1)});$('erase').classList.toggle('on',dig<0)}
+function pick(i){sel=i;if(hintCell!==i)hintCell=-1;if(dig&&!giv[i]&&!over){put(dig<0||val[i]===dig?0:dig);return}render()}
+function setDig(n){dig=dig===n?0:n;say(dig>0?`Выбрана цифра ${dig}. Нажимайте на клетки, чтобы поставить её (повторное нажатие стирает).`:dig<0?'Режим стирания: нажимайте на клетки.':'Режим выбора цифры выключен.');render()}
 function put(d){
  if(over||sel<0||giv[sel])return;
  val[sel]=d;hintCell=-1;
@@ -118,8 +120,8 @@ function check(){
  const w=[];val.forEach((v,i)=>{if(v&&v!==sol[i])w.push(i)});
  render(w);say(w.length?`Неверных цифр: ${w.length} (отмечены красным).`:'Ошибок нет — всё верно пока!')}
 $('pad').innerHTML=[1,2,3,4,5,6,7,8,9].map(d=>`<button>${d}</button>`).join('');
-[...$('pad').children].forEach((b,k)=>b.onclick=()=>put(k+1));
-$('erase').onclick=()=>put(0);$('hint').onclick=hint;$('check').onclick=check;$('new').onclick=newGame;$('lvl').onchange=newGame;
+[...$('pad').children].forEach((b,k)=>b.onclick=()=>setDig(k+1));
+$('erase').onclick=()=>setDig(-1);$('hint').onclick=hint;$('check').onclick=check;$('new').onclick=newGame;$('lvl').onchange=newGame;
 $('theme').onclick=()=>{const r=document.documentElement,d=getComputedStyle(r).getPropertyValue('--bg').trim()==='#171716';r.dataset.theme=d?'light':'dark'};
 document.addEventListener('keydown',e=>{
  if(/^[1-9]$/.test(e.key))put(+e.key);
